@@ -4,13 +4,34 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "addons/anti_cheat_toolkit/bin/anti_cheat_native.gdextension"
+      - "addons/anti_cheat_toolkit/**"
       - "native/**"
       - "scripts/**"
+      - "tests/**"
       - ".github/workflows/native-libraries.yml"
 
+env:
+  GODOT_DOWNLOAD_URL: https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_win64.exe.zip
+  # Commit the committed DLLs were built from; keeps CI builds reproducible.
+  GODOT_CPP_COMMIT: 3a7edf0ea34fac0623ef3013d60362e9d01654d2
+
 jobs:
-  windows:
+  # Validates the DLLs committed to the repo - the binaries users actually consume.
+  test-committed-binaries:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Godot 4.6.3
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri $env:GODOT_DOWNLOAD_URL -OutFile "$env:RUNNER_TEMP/godot.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP/godot.zip" -DestinationPath "$env:RUNNER_TEMP/godot" -Force
+      - name: Run Godot headless tests
+        shell: pwsh
+        run: ./tests/run_godot_tests.ps1 -Godot "$env:RUNNER_TEMP/godot/Godot_v4.6.3-stable_win64_console.exe"
+
+  # Validates that the native source still builds and the resulting DLLs pass the same tests.
+  build-and-test:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,8 +40,13 @@ jobs:
           python-version: "3.11"
       - name: Install SCons
         run: python -m pip install scons
-      - name: Fetch godot-cpp
-        run: git clone --depth 1 --branch master https://github.com/godotengine/godot-cpp native/thirdparty/godot-cpp
+      - name: Fetch godot-cpp (pinned)
+        shell: pwsh
+        run: |
+          git init native/thirdparty/godot-cpp
+          git -C native/thirdparty/godot-cpp remote add origin https://github.com/godotengine/godot-cpp
+          git -C native/thirdparty/godot-cpp fetch --depth 1 origin $env:GODOT_CPP_COMMIT
+          git -C native/thirdparty/godot-cpp checkout FETCH_HEAD
       - name: Build debug DLL
         run: ./scripts/build_windows.ps1 -Target template_debug
       - name: Build release DLL
@@ -28,7 +54,7 @@ jobs:
       - name: Download Godot 4.6.3
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_win64.exe.zip -OutFile "$env:RUNNER_TEMP/godot.zip"
+          Invoke-WebRequest -Uri $env:GODOT_DOWNLOAD_URL -OutFile "$env:RUNNER_TEMP/godot.zip"
           Expand-Archive -Path "$env:RUNNER_TEMP/godot.zip" -DestinationPath "$env:RUNNER_TEMP/godot" -Force
       - name: Run Godot headless tests
         shell: pwsh
