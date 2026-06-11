@@ -1,0 +1,14 @@
+.codex_deps/
+.godot/
+.godot_appdata/
+.godot_localappdata/
+dist/
+native/thirdparty/godot-cpp/
+*.obj
+*.obj.import
+*.pdb
+*.ilk
+*.exp
+*.lib
+__pycache__/
+.sconsign.dblite

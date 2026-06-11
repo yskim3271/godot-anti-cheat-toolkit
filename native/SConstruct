@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+import os
+
+godot_cpp_path = ARGUMENTS.get("godot_cpp_path", "thirdparty/godot-cpp")
+ARGUMENTS.pop("godot_cpp_path", None)
+if not os.path.exists(os.path.join(godot_cpp_path, "SConstruct")):
+    print("Missing godot-cpp. Run scripts/bootstrap_godot_cpp.ps1 or pass godot_cpp_path=<path>.")
+    Exit(1)
+
+env = SConscript(os.path.join(godot_cpp_path, "SConstruct"))
+env.Append(CPPPATH=["src"])
+
+sources = Glob("src/*.cpp")
+
+target_path = "../addons/anti_cheat_toolkit/bin/anti_cheat_native{}{}".format(
+    env["suffix"],
+    env["SHLIBSUFFIX"],
+)
+library = env.SharedLibrary(target_path, source=sources)
+Default(library)
